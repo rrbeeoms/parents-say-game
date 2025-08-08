@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>父母說（指令遊戲）</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f8ff;
+            color: #333;
+            text-align: center;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #4a4a4a;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        #setup, #game-over-screen {
+            padding: 20px;
+        }
+        #game-screen {
+            display: none; /* Initially hidden */
+        }
+        .teams-container {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .team {
+            width: 45%;
+            padding: 15px;
+            border: 2px solid;
+            border-radius: 8px;
+        }
+        #teamA {
+            border-color: #4CAF50; /* Green */
+        }
+        #teamB {
+            border-color: #2196F3; /* Blue */
+        }
+        .team h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .team ol {
+            padding-left: 25px;
+        }
+        .team li.current-player {
+            font-weight: bold;
+            color: #d9534f; /* Red */
+        }
+        #controls, #match-controls {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        textarea {
+            width: 80%;
+            height: 150px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        label {
+            margin: 0 10px;
+        }
+        input[type="number"] {
+            width: 80px;
+            padding: 5px;
+        }
+        button {
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #4cae4c;
+        }
+        button.secondary {
+            background-color: #f0ad4e;
+        }
+        button.secondary:hover {
+            background-color: #ec971f;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #timer, #scores {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #31708f;
+        }
+        #match-result, #encouragement {
+            margin-top: 15px;
+            font-size: 1.2em;
+            min-height: 50px;
+        }
+        #match-result .winner { color: #3c763d; }
+        #match-result .loser { color: #a94442; }
+        #final-result {
+            font-size: 2em;
+            font-weight: bold;
+            color: #d9534f;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>父母說 指令遊戲</h1>
+
+        <!-- Step 1 & 2: Setup Screen -->
+        <div id="setup">
+            <h2>遊戲設定</h2>
+            <div id="controls">
+                <label for="player-list"><strong>請輸入所有小朋友的名字（一行一個）：</strong></label><br>
+                <textarea id="player-list">沛馨
+知愛
+宛汝
+牧謙
+筠縢
+映安
+允恩
+允薆
+心恩
+晨蕊</textarea><br>
+                <label for="game-time"><strong>遊戲時間（分鐘）：</strong></label>
+                <input type="number" id="game-time" value="5" min="1">
+                <br>
+                <button id="start-game-btn">開始遊戲</button>
+            </div>
+        </div>
+
+        <!-- Step 3-6: Game Screen -->
+        <div id="game-screen">
+            <div id="timer">05:00</div>
+            <div id="scores">順從神: 0 - 服從人: 0</div>
+            <div class="teams-container">
+                <div id="teamA" class="team">
+                    <h2>順從神</h2>
+                    <ol id="teamA-list"></ol>
+                </div>
+                <div id="teamB" class="team">
+                    <h2>服從人</h2>
+                    <ol id="teamB-list"></ol>
+                </div>
+            </div>
+
+            <div id="match-controls">
+                <h3>本輪對戰</h3>
+                <p id="current-matchup" style="font-size: 1.3em; font-weight: bold;">A vs B</p>
+                <p>請記錄猜拳結果（最多三次，先贏兩次者獲勝）</p>
+                <button id="win-A-btn">順從神隊 獲勝</button>
+                <button id="win-B-btn">服從人隊 獲勝</button>
+                <div id="encouragement"></div>
+                <div id="match-result"></div>
+                <button id="next-round-btn" style="display: none;" class="secondary">下一組</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" style="display:none;">
+            <h2>遊戲結束！</h2>
+            <div id="final-result"></div>
+            <p>謝謝大家的參與！你們都表現得很棒！</p>
+            <button onclick="location.reload()">重新開始</button>
+        </div>
+
+    </div>
+
+    <audio id="win-sound" src="https://www.soundjay.com/buttons/sounds/button-1.mp3" preload="auto"></audio>
+    <audio id="end-sound" src="https://www.soundjay.com/misc/sounds/tada-fanfare-a.mp3" preload="auto"></audio>
+
+<script>
+    // --- DOM Elements ---
+    const setupScreen = document.getElementById('setup');
+    const gameScreen = document.getElementById('game-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+
+    const playerListTextarea = document.getElementById('player-list');
+    const gameTimeInput = document.getElementById('game-time');
+    const startGameBtn = document.getElementById('start-game-btn');
+
+    const timerDisplay = document.getElementById('timer');
+    const scoresDisplay = document.getElementById('scores');
+    const teamAList = document.getElementById('teamA-list');
+    const teamBList = document.getElementById('teamB-list');
+
+    const currentMatchupDisplay = document.getElementById('current-matchup');
+    const winABtn = document.getElementById('win-A-btn');
+    const winBBtn = document.getElementById('win-B-btn');
+    const encouragementDisplay = document.getElementById('encouragement');
+    const matchResultDisplay = document.getElementById('match-result');
+    const nextRoundBtn = document.getElementById('next-round-btn');
+
+    const finalResultDisplay = document.getElementById('final-result');
+    const winSound = document.getElementById('win-sound');
+    const endSound = document.getElementById('end-sound');
+
+    // --- Game State ---
+    let teamA = [];
+    let teamB = [];
+    let teamAScore = 0;
+    let teamBScore = 0;
+    let currentPairIndex = 0;
+    let roundWinsA = 0;
+    let roundWinsB = 0;
+    let timerInterval;
+    const encouragementPhrases = ["太棒了！", "繼續加油！", "表現得很好！", "你做到了！", "很厲害喔！"];
+
+    // --- Event Listeners ---
+    startGameBtn.addEventListener('click', startGame);
+    winABtn.addEventListener('click', () => recordRoundWin('A'));
+    winBBtn.addEventListener('click', () => recordRoundWin('B'));
+    nextRoundBtn.addEventListener('click', setupNextRound);
+
+    // --- Functions ---
+
+    // Step 1 & 2: Start the game, setup teams and timer
+    function startGame() {
+        // Get players and shuffle them
+        let players = playerListTextarea.value.split('\n').map(p => p.trim()).filter(p => p);
+        if (players.length < 2) {
+            alert("至少需要兩位小朋友才能開始遊戲喔！");
+            return;
+        }
+        players.sort(() => 0.5 - Math.random());
+
+        // Split into two teams
+        const midIndex = Math.ceil(players.length / 2);
+        teamA = players.slice(0, midIndex);
+        teamB = players.slice(midIndex);
+        
+        // Handle uneven teams by adding a placeholder
+        if (teamA.length > teamB.length) {
+            teamB.push("輪空");
+        }
+
+        // Display teams
+        displayTeams();
+        
+        // Switch screens
+        setupScreen.style.display = 'none';
+        gameScreen.style.display = 'block';
+
+        // Start timer
+        let time = parseInt(gameTimeInput.value) * 60;
+        startTimer(time);
+
+        // Start first round
+        setupNextRound();
+    }
+
+    function displayTeams() {
+        teamAList.innerHTML = teamA.map(p => `<li>${p}</li>`).join('');
+        teamBList.innerHTML = teamB.map(p => `<li>${p}</li>`).join('');
+    }
+
+    function startTimer(duration) {
+        let remaining = duration;
+        timerInterval = setInterval(() => {
+            const minutes = Math.floor(remaining / 60);
+            let seconds = remaining % 60;
+            seconds = seconds < 10 ? '0' + seconds : seconds;
+            timerDisplay.textContent = `${minutes}:${seconds}`;
+
+            if (--remaining < 0) {
+                endGame("時間到");
+            }
+        }, 1000);
+    }
+    
+    // Step 3: Show current pair
+    function setupNextRound() {
+        if (currentPairIndex >= teamA.length) {
+            endGame("所有小朋友都玩過了");
+            return;
+        }
+
+        // Highlight current players in the list
+        document.querySelectorAll('.team li').forEach(li => li.classList.remove('current-player'));
+        if (teamAList.children[currentPairIndex]) teamAList.children[currentPairIndex].classList.add('current-player');
+        if (teamBList.children[currentPairIndex]) teamBList.children[currentPairIndex].classList.add('current-player');
+
+        // Reset round state
+        roundWinsA = 0;
+        roundWinsB = 0;
+        
+        const playerA = teamA[currentPairIndex];
+        const playerB = teamB[currentPairIndex];
+        
+        if (playerA === "輪空" || playerB === "輪空") {
+            handleByeRound();
+            return;
+        }
+
+        currentMatchupDisplay.textContent = `${playerA} (順從神) vs ${playerB} (服從人)`;
+        encouragementDisplay.textContent = '請猜拳決定先後！';
+        matchResultDisplay.innerHTML = '';
+
+        winABtn.disabled = false;
+        winBBtn.disabled = false;
+        nextRoundBtn.style.display = 'none';
+    }
+    
+    // Handle "Bye" rounds for uneven teams
+    function handleByeRound() {
+        const winnerTeam = teamA[currentPairIndex] !== "輪空" ? 'A' : 'B';
+        const winnerPlayer = winnerTeam === 'A' ? teamA[currentPairIndex] : teamB[currentPairIndex];
+        
+        currentMatchupDisplay.textContent = `${winnerPlayer} 本輪輪空`;
+        matchResultDisplay.innerHTML = `<p class="winner">${winnerPlayer} 自動獲勝！</p>`;
+        
+        if (winnerTeam === 'A') teamAScore++;
+        else teamBScore++;
+        
+        updateScores();
+        winABtn.disabled = true;
+        winBBtn.disabled = true;
+        nextRoundBtn.style.display = 'block';
+        currentPairIndex++;
+    }
+
+    // Step 4 & 5: Record round win and check for match completion
+    function recordRoundWin(winner) {
+        winSound.play();
+        if (winner === 'A') {
+            roundWinsA++;
+        } else {
+            roundWinsB++;
+        }
+        
+        encouragementDisplay.textContent = encouragementPhrases[Math.floor(Math.random() * encouragementPhrases.length)];
+        matchResultDisplay.innerHTML = `<p>目前回合比數： 順從神 ${roundWinsA} - ${roundWinsB} 服從人</p>`;
+
+        if (roundWinsA >= 2 || roundWinsB >= 2) {
+            endMatch();
+        }
+    }
+
+    function endMatch() {
+        const matchWinner = roundWinsA > roundWinsB ? 'A' : 'B';
+        const winnerPlayer = matchWinner === 'A' ? teamA[currentPairIndex] : teamB[currentPairIndex];
+        const loserPlayer = matchWinner === 'A' ? teamB[currentPairIndex] : teamA[currentPairIndex];
+
+        // Step 6: Update score and show results/phrases
+        if (matchWinner === 'A') {
+            teamAScore++;
+        } else {
+            teamBScore++;
+        }
+        updateScores();
+
+        matchResultDisplay.innerHTML = `
+            <p class="winner"><strong>${winnerPlayer} 贏了這一組！</strong> 請大家一起為他/她唸：「順從父母！」</p>
+            <p class="loser"><strong>${loserPlayer} 也非常努力！</strong> 請唸出我們的口訣：<br>
+            三字訣：「順從神、服從人」<br>
+            七字訣：「信而順從神喜愛 服從權柄不頂撞」</p>
+            <p>大家都好棒！請給彼此一個鼓勵的掌聲！</p>
+        `;
+        
+        encouragementDisplay.textContent = "這一組比賽結束！";
+        winABtn.disabled = true;
+        winBBtn.disabled = true;
+        nextRoundBtn.style.display = 'block';
+        
+        currentPairIndex++;
+    }
+
+    function updateScores() {
+        scoresDisplay.textContent = `順從神: ${teamAScore} - 服從人: ${teamBScore}`;
+    }
+
+    // --- Final Step: End the game ---
+    function endGame(reason) {
+        clearInterval(timerInterval);
+        endSound.play();
+
+        let resultText = '';
+        if (teamAScore > teamBScore) {
+            resultText = `「順從神」隊獲勝！恭喜！`;
+        } else if (teamBScore > teamAScore) {
+            resultText = `「服從人」隊獲勝！恭喜！`;
+        } else {
+            resultText = `平手！兩隊都非常厲害！`;
+        }
+        
+        finalResultDisplay.textContent = `(${reason}) ${resultText}`;
+        gameScreen.style.display = 'none';
+        gameOverScreen.style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
