@@ -159,6 +159,11 @@
     const teamRevealScreen = document.getElementById('team-reveal-screen');
     const gameScreen = document.getElementById('game-screen');
     const gameOverScreen = document.getElementById('game-over-screen');
+    
+    // ** BUG FIX: Re-added the missing variable definitions **
+    const playerListTextarea = document.getElementById('player-list');
+    const gameTimeInput = document.getElementById('game-time');
+    
     const setupCompleteBtn = document.getElementById('setup-complete-btn');
     const startGameBtn = document.getElementById('start-game-btn');
     const revealTeamAList = document.getElementById('reveal-teamA-list');
@@ -181,7 +186,6 @@
     let teamAScore = 0, teamBScore = 0;
     let currentPairIndex = 0;
     let roundWinsA = 0, roundWinsB = 0;
-    // MODIFICATION: State variables for timer control
     let timerInterval;
     let gameTimeRemaining;
     let isPaused = true;
@@ -221,9 +225,8 @@
         setupNextRound();
     }
     
-    // MODIFICATION 2: Timer Control Functions
     function startOrResumeTimer() {
-        if (!isPaused) return; // Prevent multiple intervals
+        if (!isPaused) return;
         isPaused = false;
         timerDisplay.classList.remove('paused');
         timerInterval = setInterval(() => {
@@ -265,8 +268,6 @@
         winABtn.disabled = false;
         winBBtn.disabled = false;
         nextRoundBtn.style.display = 'none';
-        
-        // Resume timer for the new round
         startOrResumeTimer();
     }
     
@@ -281,7 +282,7 @@
         winABtn.disabled = true;
         winBBtn.disabled = true;
         nextRoundBtn.style.display = 'block';
-        pauseTimer(); // Pause timer after bye round
+        pauseTimer();
     }
 
     function recordRoundWin(winner) {
@@ -301,7 +302,6 @@
         if (matchWinner === 'A') teamAScore++; else teamBScore++;
         updateScores();
 
-        // MODIFICATION 1: Added bible verse
         matchResultDisplay.innerHTML = `
             <p class="winner"><strong>${winnerPlayer} 贏了這一組！</strong> 請大家一起為他/她唸：「順從父母！」</p>
             <p class="loser"><strong>${loserPlayer} 也非常努力！</strong> 請唸出我們的口訣：<br>
@@ -315,7 +315,7 @@
         winABtn.disabled = true;
         winBBtn.disabled = true;
         nextRoundBtn.style.display = 'block';
-        pauseTimer(); // Pause timer after match ends
+        pauseTimer();
     }
 
     function updateScores() {
@@ -328,7 +328,7 @@
         let resultText = '';
         if (teamAScore > teamBScore) {
             resultText = `「順從神」隊獲勝！恭喜！`;
-        } else if (teamBScore > teamAScore) {
+        } else if (teamBScore > teamBScore) {
             resultText = `「服從人」隊獲勝！恭喜！`;
         } else {
             resultText = `平手！兩隊都非常厲害！`;
