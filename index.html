@@ -23,7 +23,6 @@
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        /* All screens are hidden by default, script will show the correct one */
         #setup, #team-reveal-screen, #game-screen, #game-over-screen {
             display: none;
         }
@@ -39,8 +38,8 @@
             border: 2px solid;
             border-radius: 8px;
         }
-        #teamA-display { border-color: #4CAF50; /* Green */ }
-        #teamB-display { border-color: #2196F3; /* Blue */ }
+        #teamA-display { border-color: #4CAF50; }
+        #teamB-display { border-color: #2196F3; }
         .team-display h2 {
             margin-top: 0;
             border-bottom: 2px solid #eee;
@@ -75,6 +74,7 @@
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
 
         #timer, #scores { font-size: 1.5em; font-weight: bold; margin: 20px 0; color: #31708f; }
+        #timer.paused { color: #f0ad4e; } /* Paused timer color */
         #round-score { font-size: 1.3em; font-weight: bold; color: #d9534f; min-height: 30px; }
         #match-result { margin-top: 15px; font-size: 1.2em; min-height: 50px; }
         #match-result .winner { color: #3c763d; }
@@ -87,7 +87,6 @@
     <div class="container">
         <h1>父母說 指令遊戲</h1>
 
-        <!-- Step 1: Setup Screen -->
         <div id="setup">
             <h2>遊戲設定</h2>
             <div id="controls">
@@ -109,7 +108,6 @@
             </div>
         </div>
 
-        <!-- MODIFICATION: Step 2: Team Reveal Screen -->
         <div id="team-reveal-screen">
             <h2>分隊結果！</h2>
             <p>請確認自己的隊伍，並找到隊友！</p>
@@ -123,10 +121,9 @@
                     <ol id="reveal-teamB-list"></ol>
                 </div>
             </div>
-            <button id="start-game-btn">確認完畢，開始計時！</button>
+            <button id="start-game-btn">確認完畢，開始遊戲！</button>
         </div>
 
-        <!-- Step 3: Game Screen -->
         <div id="game-screen">
             <div id="timer">00:00</div>
             <div id="scores">順從神: 0 - 服從人: 0</div>
@@ -145,7 +142,6 @@
             </div>
         </div>
 
-        <!-- Step 4: Game Over Screen -->
         <div id="game-over-screen">
             <h2>遊戲結束！</h2>
             <div id="final-result"></div>
@@ -154,27 +150,19 @@
         </div>
     </div>
 
-    <!-- Hidden audio elements -->
     <audio id="win-sound" src="https://www.soundjay.com/buttons/sounds/button-1.mp3" preload="auto"></audio>
     <audio id="end-sound" src="https://www.soundjay.com/misc/sounds/tada-fanfare-a.mp3" preload="auto"></audio>
 
 <script>
     // --- DOM Elements ---
     const setupScreen = document.getElementById('setup');
-    const teamRevealScreen = document.getElementById('team-reveal-screen'); // New screen
+    const teamRevealScreen = document.getElementById('team-reveal-screen');
     const gameScreen = document.getElementById('game-screen');
     const gameOverScreen = document.getElementById('game-over-screen');
-
-    const playerListTextarea = document.getElementById('player-list');
-    const gameTimeInput = document.getElementById('game-time');
-    const setupCompleteBtn = document.getElementById('setup-complete-btn'); // Renamed button
-    const startGameBtn = document.getElementById('start-game-btn'); // New button
-
-    // Elements for the reveal screen
+    const setupCompleteBtn = document.getElementById('setup-complete-btn');
+    const startGameBtn = document.getElementById('start-game-btn');
     const revealTeamAList = document.getElementById('reveal-teamA-list');
     const revealTeamBList = document.getElementById('reveal-teamB-list');
-
-    // Elements for the game screen
     const timerDisplay = document.getElementById('timer');
     const scoresDisplay = document.getElementById('scores');
     const currentMatchupDisplay = document.getElementById('current-matchup');
@@ -185,7 +173,6 @@
     const matchResultDisplay = document.getElementById('match-result');
     const nextRoundBtn = document.getElementById('next-round-btn');
     const finalResultDisplay = document.getElementById('final-result');
-
     const winSound = document.getElementById('win-sound');
     const endSound = document.getElementById('end-sound');
 
@@ -194,7 +181,10 @@
     let teamAScore = 0, teamBScore = 0;
     let currentPairIndex = 0;
     let roundWinsA = 0, roundWinsB = 0;
+    // MODIFICATION: State variables for timer control
     let timerInterval;
+    let gameTimeRemaining;
+    let isPaused = true;
 
     // --- Event Listeners ---
     setupCompleteBtn.addEventListener('click', setupTeams);
@@ -207,7 +197,6 @@
     });
 
     // --- Functions ---
-    // MODIFICATION: This function now only sets up teams and shows the reveal screen
     function setupTeams() {
         let players = playerListTextarea.value.split('\n').map(p => p.trim()).filter(p => p);
         if (players.length < 2) {
@@ -215,61 +204,60 @@
             return;
         }
         players.sort(() => 0.5 - Math.random());
-
         const midIndex = Math.ceil(players.length / 2);
         teamA = players.slice(0, midIndex);
         teamB = players.slice(midIndex);
         if (teamA.length > teamB.length) teamB.push("輪空");
-
-        // Populate the lists on the reveal screen
         revealTeamAList.innerHTML = teamA.map(p => `<li>${p}</li>`).join('');
         revealTeamBList.innerHTML = teamB.map(p => `<li>${p}</li>`).join('');
-        
         setupScreen.style.display = 'none';
         teamRevealScreen.style.display = 'block';
     }
 
-    // MODIFICATION: This function now starts the timer and the actual game
     function startGame() {
         teamRevealScreen.style.display = 'none';
         gameScreen.style.display = 'block';
-
-        let time = parseInt(gameTimeInput.value) * 60;
-        startTimer(time);
+        gameTimeRemaining = parseInt(gameTimeInput.value) * 60;
         setupNextRound();
     }
-
-    function startTimer(duration) {
-        let remaining = duration;
+    
+    // MODIFICATION 2: Timer Control Functions
+    function startOrResumeTimer() {
+        if (!isPaused) return; // Prevent multiple intervals
+        isPaused = false;
+        timerDisplay.classList.remove('paused');
         timerInterval = setInterval(() => {
-            const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
-            const seconds = String(remaining % 60).padStart(2, '0');
+            if (gameTimeRemaining <= 0) {
+                endGame("時間到");
+                return;
+            }
+            gameTimeRemaining--;
+            const minutes = String(Math.floor(gameTimeRemaining / 60)).padStart(2, '0');
+            const seconds = String(gameTimeRemaining % 60).padStart(2, '0');
             timerDisplay.textContent = `${minutes}:${seconds}`;
-            if (--remaining < 0) endGame("時間到");
         }, 1000);
     }
-    
+
+    function pauseTimer() {
+        clearInterval(timerInterval);
+        isPaused = true;
+        timerDisplay.classList.add('paused');
+    }
+
     function setupNextRound() {
         if (currentPairIndex >= teamA.length) currentPairIndex = 0;
-
         roundWinsA = 0;
         roundWinsB = 0;
-
         const playerA = teamA[currentPairIndex];
         const playerB = teamB[currentPairIndex];
-        
         currentMatchupDisplay.textContent = `本輪對戰： ${playerA} (順從神) vs ${playerB} (服從人)`;
-        
         const nextPairIndex = (currentPairIndex + 1) % teamA.length;
-        const nextPlayerA = teamA[nextPairIndex];
-        const nextPlayerB = teamB[nextPairIndex];
-        nextMatchupDisplay.textContent = `下組預備： ${nextPlayerA} vs ${nextPlayerB}`;
+        nextMatchupDisplay.textContent = `下組預備： ${teamA[nextPairIndex]} vs ${teamB[nextPairIndex]}`;
 
         if (playerA === "輪空" || playerB === "輪空") {
             handleByeRound();
             return;
         }
-
         matchResultDisplay.innerHTML = '';
         roundScoreDisplay.textContent = '回合比分： 0 - 0';
         winABtn.textContent = `${playerA} 回合勝利`;
@@ -277,31 +265,30 @@
         winABtn.disabled = false;
         winBBtn.disabled = false;
         nextRoundBtn.style.display = 'none';
+        
+        // Resume timer for the new round
+        startOrResumeTimer();
     }
     
     function handleByeRound() {
         const winnerTeamName = teamA[currentPairIndex] !== "輪空" ? '順從神' : '服從人';
         const winnerPlayer = winnerTeamName === '順從神' ? teamA[currentPairIndex] : teamB[currentPairIndex];
-        
         if (winnerTeamName === '順從神') teamAScore++;
         else teamBScore++;
         updateScores();
-        
         matchResultDisplay.innerHTML = `<p class="winner">${winnerPlayer} (${winnerTeamName}隊) 本輪輪空，自動獲勝得1分！</p>
                                         <p><strong>目前總比分：順從神 ${teamAScore} - 服從人 ${teamBScore}</strong></p>`;
-        
         winABtn.disabled = true;
         winBBtn.disabled = true;
         nextRoundBtn.style.display = 'block';
+        pauseTimer(); // Pause timer after bye round
     }
 
     function recordRoundWin(winner) {
         winSound.play();
         if (winner === 'A') roundWinsA++;
         else roundWinsB++;
-        
         roundScoreDisplay.textContent = `回合比分： ${roundWinsA} - ${roundWinsB}`;
-
         if (roundWinsA >= 2 || roundWinsB >= 2) {
             endMatch();
         }
@@ -311,16 +298,16 @@
         const matchWinner = roundWinsA > roundWinsB ? 'A' : 'B';
         const winnerPlayer = matchWinner === 'A' ? teamA[currentPairIndex] : teamB[currentPairIndex];
         const loserPlayer = matchWinner === 'A' ? teamB[currentPairIndex] : teamA[currentPairIndex];
-
-        if (matchWinner === 'A') teamAScore++;
-        else teamBScore++;
+        if (matchWinner === 'A') teamAScore++; else teamBScore++;
         updateScores();
 
+        // MODIFICATION 1: Added bible verse
         matchResultDisplay.innerHTML = `
             <p class="winner"><strong>${winnerPlayer} 贏了這一組！</strong> 請大家一起為他/她唸：「順從父母！」</p>
             <p class="loser"><strong>${loserPlayer} 也非常努力！</strong> 請唸出我們的口訣：<br>
             三字訣：「順從神、服從人」<br>
-            七字訣：「信而順從神喜愛 服從權柄不頂撞」</p>
+            七字訣：「信而順從神喜愛 服從權柄不頂撞」<br>
+            <strong>經文：</strong><em>「作兒女的，要在主裏順從你們的父母，因為這是正當的。」 (以弗所書6:1)</em></p>
             <hr>
             <p><strong>目前總比分：順從神 ${teamAScore} - 服從人 ${teamBScore}</strong></p>
         `;
@@ -328,6 +315,7 @@
         winABtn.disabled = true;
         winBBtn.disabled = true;
         nextRoundBtn.style.display = 'block';
+        pauseTimer(); // Pause timer after match ends
     }
 
     function updateScores() {
@@ -335,9 +323,8 @@
     }
 
     function endGame(reason) {
-        clearInterval(timerInterval);
+        pauseTimer();
         endSound.play();
-
         let resultText = '';
         if (teamAScore > teamBScore) {
             resultText = `「順從神」隊獲勝！恭喜！`;
@@ -346,7 +333,6 @@
         } else {
             resultText = `平手！兩隊都非常厲害！`;
         }
-        
         finalResultDisplay.textContent = `${reason}！最終比分 ${teamAScore} : ${teamBScore}。 ${resultText}`;
         gameScreen.style.display = 'none';
         gameOverScreen.style.display = 'block';
