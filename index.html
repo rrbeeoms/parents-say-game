@@ -12,7 +12,7 @@
             text-align: center;
             padding: 20px;
         }
-        h1, h2 {
+        h1, h2, h3 {
             color: #4a4a4a;
         }
         .container {
@@ -29,36 +29,26 @@
         #game-screen {
             display: none; /* Initially hidden */
         }
+        /* MODIFICATION 1: Hide the full team lists */
         .teams-container {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 20px;
-            text-align: left;
+            display: none;
         }
-        .team {
-            width: 45%;
-            padding: 15px;
-            border: 2px solid;
+        #match-preview {
+            background-color: #e7f3fe;
+            border: 2px solid #b3d7ff;
             border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
         }
-        #teamA {
-            border-color: #4CAF50; /* Green */
-        }
-        #teamB {
-            border-color: #2196F3; /* Blue */
-        }
-        .team h2 {
-            margin-top: 0;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
-        .team ol {
-            padding-left: 25px;
-        }
-        .team li.current-player {
+        #match-preview p {
+            font-size: 1.4em;
+            margin: 5px 0;
             font-weight: bold;
-            color: #d9534f; /* Red */
-            background-color: #fff3f3;
+        }
+        #match-preview #next-matchup {
+            font-size: 1.1em;
+            font-weight: normal;
+            color: #555;
         }
         #controls, #match-controls {
             margin-top: 20px;
@@ -93,7 +83,7 @@
             cursor: pointer;
             border-radius: 5px;
             transition: background-color 0.3s;
-            min-width: 150px;
+            min-width: 160px;
         }
         button:hover {
             background-color: #4cae4c;
@@ -114,7 +104,13 @@
             margin: 20px 0;
             color: #31708f;
         }
-        #match-result, #instructions {
+        #round-score {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #d9534f;
+            min-height: 30px;
+        }
+        #match-result {
             margin-top: 15px;
             font-size: 1.2em;
             min-height: 50px;
@@ -159,25 +155,27 @@
         <div id="game-screen">
             <div id="timer">05:00</div>
             <div id="scores">順從神: 0 - 服從人: 0</div>
-            <div class="teams-container">
-                <div id="teamA" class="team">
-                    <h2>順從神</h2>
-                    <ol id="teamA-list"></ol>
-                </div>
-                <div id="teamB" class="team">
-                    <h2>服從人</h2>
-                    <ol id="teamB-list"></ol>
-                </div>
+            
+            <!-- MODIFICATION 1: New focused display area -->
+            <div id="match-preview">
+                <p id="current-matchup">本輪對戰：</p>
+                <p id="next-matchup">下組預備：</p>
             </div>
 
             <div id="match-controls">
-                <h3>本輪對戰</h3>
-                <p id="current-matchup" style="font-size: 1.3em; font-weight: bold;">A vs B</p>
-                <p id="instructions">請先猜拳決定誰先說「父母說」，然後開始遊戲，並點擊下方按鈕記錄勝利者。</p>
-                <button id="win-A-btn">A隊獲勝</button>
-                <button id="win-B-btn">B隊獲勝</button>
+                <h3>回合計分 (三戰兩勝)</h3>
+                <p>請先猜拳，然後進行遊戲。觀察後，點擊下方按鈕記錄該回合勝利者。</p>
+                <div id="round-score"></div>
+                <button id="win-A-btn">A隊 回合勝利</button>
+                <button id="win-B-btn">B隊 回合勝利</button>
                 <div id="match-result"></div>
                 <button id="next-round-btn" style="display: none;" class="secondary">下一組</button>
+            </div>
+            
+            <!-- This container is now hidden but used by the script -->
+            <div class="teams-container">
+                <div id="teamA" class="team"><h2>順從神</h2><ol id="teamA-list"></ol></div>
+                <div id="teamB" class="team"><h2>服從人</h2><ol id="teamB-list"></ol></div>
             </div>
         </div>
 
@@ -188,7 +186,6 @@
             <p>謝謝大家的參與！你們都表現得很棒！</p>
             <button onclick="location.reload()">重新開始</button>
         </div>
-
     </div>
 
     <audio id="win-sound" src="https://www.soundjay.com/buttons/sounds/button-1.mp3" preload="auto"></audio>
@@ -210,7 +207,9 @@
     const teamBList = document.getElementById('teamB-list');
 
     const currentMatchupDisplay = document.getElementById('current-matchup');
-    const instructionsDisplay = document.getElementById('instructions');
+    const nextMatchupDisplay = document.getElementById('next-matchup');
+    const roundScoreDisplay = document.getElementById('round-score');
+
     const winABtn = document.getElementById('win-A-btn');
     const winBBtn = document.getElementById('win-B-btn');
     const matchResultDisplay = document.getElementById('match-result');
@@ -221,21 +220,24 @@
     const endSound = document.getElementById('end-sound');
 
     // --- Game State ---
-    let teamA = [];
-    let teamB = [];
-    let teamAScore = 0;
-    let teamBScore = 0;
+    let teamA = [], teamB = [];
+    let teamAScore = 0, teamBScore = 0;
     let currentPairIndex = 0;
+    // MODIFICATION 2: Re-add round win tracking
+    let roundWinsA = 0, roundWinsB = 0;
     let timerInterval;
 
     // --- Event Listeners ---
     startGameBtn.addEventListener('click', startGame);
-    winABtn.addEventListener('click', () => declareMatchWinner('A'));
-    winBBtn.addEventListener('click', () => declareMatchWinner('B'));
-    nextRoundBtn.addEventListener('click', setupNextRound);
+    // MODIFICATION 2: Point buttons to the round win function
+    winABtn.addEventListener('click', () => recordRoundWin('A'));
+    winBBtn.addEventListener('click', () => recordRoundWin('B'));
+    nextRoundBtn.addEventListener('click', () => {
+        currentPairIndex++;
+        setupNextRound();
+    });
 
     // --- Functions ---
-
     function startGame() {
         let players = playerListTextarea.value.split('\n').map(p => p.trim()).filter(p => p);
         if (players.length < 2) {
@@ -247,25 +249,17 @@
         const midIndex = Math.ceil(players.length / 2);
         teamA = players.slice(0, midIndex);
         teamB = players.slice(midIndex);
-        
-        if (teamA.length > teamB.length) {
-            teamB.push("輪空");
-        }
+        if (teamA.length > teamB.length) teamB.push("輪空");
 
-        displayTeams();
+        teamAList.innerHTML = teamA.map(p => `<li>${p}</li>`).join('');
+        teamBList.innerHTML = teamB.map(p => `<li>${p}</li>`).join('');
         
         setupScreen.style.display = 'none';
         gameScreen.style.display = 'block';
 
         let time = parseInt(gameTimeInput.value) * 60;
         startTimer(time);
-
         setupNextRound();
-    }
-
-    function displayTeams() {
-        teamAList.innerHTML = teamA.map(p => `<li>${p}</li>`).join('');
-        teamBList.innerHTML = teamB.map(p => `<li>${p}</li>`).join('');
     }
 
     function startTimer(duration) {
@@ -274,40 +268,38 @@
             const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
             const seconds = String(remaining % 60).padStart(2, '0');
             timerDisplay.textContent = `${minutes}:${seconds}`;
-
-            if (--remaining < 0) {
-                endGame("時間到");
-            }
+            if (--remaining < 0) endGame("時間到");
         }, 1000);
     }
     
     function setupNextRound() {
-        // **MODIFICATION 1: Loop back to start if all pairs have played**
-        if (currentPairIndex >= teamA.length) {
-            currentPairIndex = 0; // Reset to the first pair
-        }
+        if (currentPairIndex >= teamA.length) currentPairIndex = 0; // Loop back
 
-        document.querySelectorAll('.team li').forEach(li => li.classList.remove('current-player'));
-        if (teamAList.children[currentPairIndex]) teamAList.children[currentPairIndex].classList.add('current-player');
-        if (teamBList.children[currentPairIndex]) teamBList.children[currentPairIndex].classList.add('current-player');
+        // MODIFICATION 2: Reset round state for the new match
+        roundWinsA = 0;
+        roundWinsB = 0;
 
         const playerA = teamA[currentPairIndex];
         const playerB = teamB[currentPairIndex];
         
+        // MODIFICATION 1: Update the new focused display
+        currentMatchupDisplay.textContent = `本輪對戰： ${playerA} (順從神) vs ${playerB} (服從人)`;
+        
+        const nextPairIndex = (currentPairIndex + 1) % teamA.length;
+        const nextPlayerA = teamA[nextPairIndex];
+        const nextPlayerB = teamB[nextPairIndex];
+        nextMatchupDisplay.textContent = `下組預備： ${nextPlayerA} vs ${nextPlayerB}`;
+
+        // Handle "Bye" rounds automatically
         if (playerA === "輪空" || playerB === "輪空") {
             handleByeRound();
             return;
         }
-        
-        // **MODIFICATION 3: Simplified UI logic**
-        currentMatchupDisplay.textContent = `${playerA} (順從神) vs ${playerB} (服從人)`;
-        instructionsDisplay.innerHTML = `請先猜拳決定誰先說「父母說」，然後開始遊戲，並點擊下方按鈕記錄勝利者。`;
+
         matchResultDisplay.innerHTML = '';
-
-        // Update button text to be more specific
-        winABtn.textContent = `${playerA} 獲勝`;
-        winBBtn.textContent = `${playerB} 獲勝`;
-
+        roundScoreDisplay.textContent = '回合比分： 0 - 0';
+        winABtn.textContent = `${playerA} 回合勝利`;
+        winBBtn.textContent = `${playerB} 回合勝利`;
         winABtn.disabled = false;
         winBBtn.disabled = false;
         nextRoundBtn.style.display = 'none';
@@ -321,30 +313,37 @@
         else teamBScore++;
         updateScores();
         
-        currentMatchupDisplay.textContent = `${winnerPlayer} 本輪輪空`;
-        matchResultDisplay.innerHTML = `<p class="winner">${winnerPlayer} 自動獲勝得1分！</p>
+        matchResultDisplay.innerHTML = `<p class="winner">${winnerPlayer} 本輪輪空，自動獲勝得1分！</p>
                                         <p><strong>目前總比分：順從神 ${teamAScore} - 服從人 ${teamBScore}</strong></p>`;
         
         winABtn.disabled = true;
         winBBtn.disabled = true;
         nextRoundBtn.style.display = 'block';
-        currentPairIndex++;
     }
 
-    // **MODIFICATION 3: New function to handle direct match win**
-    function declareMatchWinner(winningTeam) {
+    // MODIFICATION 2: Function to record a single round's win
+    function recordRoundWin(winner) {
         winSound.play();
-        const winnerPlayer = winningTeam === 'A' ? teamA[currentPairIndex] : teamB[currentPairIndex];
-        const loserPlayer = winningTeam === 'A' ? teamB[currentPairIndex] : teamA[currentPairIndex];
+        if (winner === 'A') roundWinsA++;
+        else roundWinsB++;
+        
+        roundScoreDisplay.textContent = `回合比分： ${roundWinsA} - ${roundWinsB}`;
 
-        if (winningTeam === 'A') {
-            teamAScore++;
-        } else {
-            teamBScore++;
+        if (roundWinsA >= 2 || roundWinsB >= 2) {
+            endMatch();
         }
+    }
+
+    // MODIFICATION 2: Function to end the match after 2 wins
+    function endMatch() {
+        const matchWinner = roundWinsA > roundWinsB ? 'A' : 'B';
+        const winnerPlayer = matchWinner === 'A' ? teamA[currentPairIndex] : teamB[currentPairIndex];
+        const loserPlayer = matchWinner === 'A' ? teamB[currentPairIndex] : teamA[currentPairIndex];
+
+        if (matchWinner === 'A') teamAScore++;
+        else teamBScore++;
         updateScores();
 
-        // **MODIFICATION 2: Show cumulative score in result**
         matchResultDisplay.innerHTML = `
             <p class="winner"><strong>${winnerPlayer} 贏了這一組！</strong> 請大家一起為他/她唸：「順從父母！」</p>
             <p class="loser"><strong>${loserPlayer} 也非常努力！</strong> 請唸出我們的口訣：<br>
@@ -354,12 +353,9 @@
             <p><strong>目前總比分：順從神 ${teamAScore} - 服從人 ${teamBScore}</strong></p>
         `;
         
-        instructionsDisplay.textContent = "這一組比賽結束！請準備下一組。";
         winABtn.disabled = true;
         winBBtn.disabled = true;
         nextRoundBtn.style.display = 'block';
-        
-        currentPairIndex++;
     }
 
     function updateScores() {
